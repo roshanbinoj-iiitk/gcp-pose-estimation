@@ -42,3 +42,14 @@
 5.  The script will iterate through the test dataset, generate predictions, scale them back to the original image dimensions, and save the result as `predictions.json` in the current directory.
 
 *Note: Model weights can be downloaded from [INSERT_DRIVE_LINK_HERE]*
+
+## 5. Error Analysis & Critical Fixes
+
+Following the initial model training and evaluation, an extensive error analysis was conducted. We discovered and mitigated several critical issues causing inaccurate coordinate predictions:
+
+*   **Double-Scaling of Keypoints:** The dataset class was manually scaling down the original `(x, y)` coordinates to match the 384x384 resized image. However, the Albumentations pipeline was automatically rescaling these already-scaled keypoints again, clustering the ground-truth targets into a tiny 36x24 pixel area in the top-left corner.
+*   **Wing Loss Normalization Mismatch:** The default `WingLoss` parameters were designed for absolute pixel distances. Because we were operating in a normalized `[0, 1]` coordinate space, the loss effectively degenerated into a smooth L1 loss, neutralizing the intended benefits of WingLoss.
+*   **Distorted Validation Metrics:** Validation metrics (like PCK) were originally validating against the incorrectly scaled coordinates. As the model only needed to predict within a small bounding box, it incorrectly appeared highly accurate during training, masking the underlying double-scaling bug.
+*   **Taxonomy Fixes:** The classification output incorrectly remapped "L-Shape" to "L-Shaped", which would have caused formatting mismatches during final evaluations against the ground truth labels.
+
+These findings resulted in correcting the dataset scaling behavior, adjusting the Wing Loss hyperparameters for `[0, 1]` domains, and fixing string formats for classification labels.
